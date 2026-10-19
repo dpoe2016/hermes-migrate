@@ -54,7 +54,9 @@ CRITICAL_ITEMS = [
     "models_dev_cache.etag",
 ]
 
-# Verzeichnisse, die MISSMÜSSEN
+# Verzeichnisse, die MISSMÜSSEN (nutzdaten, keine Plattform-Binaries!)
+# tools/, platforms/, node/, bin/, hermes-agent/ werden NICHT mitgenommen –
+# sie werden auf dem Zielrechner automatisch neu installiert.
 CRITICAL_DIRS = [
     "skills",
     "sessions",
@@ -67,12 +69,7 @@ CRITICAL_DIRS = [
     "pairing",
     "vault",
     "profiles",
-    "tools",
-    "gateway",
-    "lsp",
     "hooks",
-    "node",
-    "platforms",
     "pastes",
     "pending",
     "pending_messages",
@@ -84,11 +81,6 @@ CRITICAL_DIRS = [
     "audio_cache",
     "images",
     "serve_restart_pending",
-    "sandboxes",
-    "cache",
-    "installs",
-    "bin",
-    "hermes-agent",
 ]
 
 # Optionale Verzeichnisse

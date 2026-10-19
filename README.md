@@ -1,14 +1,14 @@
 # Hermes Migration Tool
 
-Vollständige Migration des [Hermes AI Agent](https://github.com/karrotcomm/hermes) auf einen neuen Server.
+Full migration of the [Hermes AI Agent](https://github.com/karrotcomm/hermes) to a new server.
 
-## Funktionen
+## Features
 
-- **Backup** — Stoppet Gateway, synchronisiert SQLite, erstellt `.tar.gz`-Archiv
-- **Restore** — Stellt Archiv auf neuem Server, sichert vorhandene Daten optional
-- **Verify** — Prüft Archiv auf Vollständigkeit
-- **Info** — Zeigt Installationsinformationen
-- **List** — Listet alle zu migrierenden Komponenten
+- **Backup** — Stop gateway, synchronize SQLite, create `.tar.gz` archive
+- **Restore** — Restore archive on new server, optionally preserve existing data
+- **Verify** — Check archive for completeness
+- **Info** — Show installation information
+- **List** — List all components to be migrated
 
 ## Installation
 
@@ -17,18 +17,18 @@ sudo cp hermes-migrate.py /usr/local/bin/hermes-migrate
 sudo chmod +x /usr/local/bin/hermes-migrate
 ```
 
-## Verwendung
+## Usage
 
 ### Backup
 
 ```bash
-# Automatisch (Zeitstempel-Namen)
+# Automatic (timestamp name)
 hermes-migrate backup
 
-# Mit manuellem Pfad
+# With manual path
 hermes-migrate backup -o /tmp/hermes-backup.tar.gz
 
-# Inklusive optionaler Daten (logs/, backups/)
+# Including optional data (logs/, backups/)
 hermes-migrate backup --include-optional
 ```
 
@@ -51,43 +51,43 @@ hermes-migrate info
 hermes-migrate list
 ```
 
-## Was wird migriert?
+## What gets migrated?
 
-**Kritische Dateien (immer):**
-- `config.yaml` — Hauptkonfiguration
-- `.env` — Umgebungsvariablen, API-Keys
-- `auth.json` — Auth-Tokens
-- `state.db` (+ WAL/SHM) — SQLite Zustandsdatenbank
-- `install_id` — Installationsidentität
-- `kanban.db`, `projects.db` — Task-Daten
+**Critical files (always):**
+- `config.yaml` — Main configuration
+- `.env` — Environment variables, API keys
+- `auth.json` — Auth tokens
+- `state.db` (+ WAL/SHM) — SQLite state database
+- `install_id` — Installation identity
+- `kanban.db`, `projects.db` — Task data
 
-**Kritische Verzeichnisse (immer):**
+**Critical directories (always):**
 - `skills/`, `sessions/`, `memories/`, `cron/`
 - `scripts/`, `plugins/`, `plugin-data/`
 - `mcp-tokens/`, `pairing/`, `vault/`, `profiles/`
 - `gateway/`, `lsp/`, `hooks/`, `node/`
 
-**Optionale Daten (`--include-optional`):**
+**Optional data (`--include-optional`):**
 - `backups/`, `logs/`
 
-**Automatisch ausgeschlossen:**
-- Lock-Dateien (`*.lock`, `*.pid`, `*.sock`)
-- Temporäre Dateien (`*.tmp`)
+**Automatically excluded:**
+- Lock files (`*.lock`, `*.pid`, `*.sock`)
+- Temporary files (`*.tmp`)
 - Cache (`cache/`, `tools/`)
-- Protokolldateien (`*.log`)
+- Log files (`*.log`)
 
-## Sicherheitshinweise
+## Security notes
 
-- Das Tool stoppt das Hermes Gateway vor dem Backup automatisch
-- SQLite-Datenbanken werden konsistent flushen (WAL-Checkpoint)
-- Vorhandene Daten auf dem Zielsystem können gesichert werden
-- `install_id` bleibt erhalten — Identität der Installation
+- The tool automatically stops the Hermes gateway before backup
+- SQLite databases are flushed consistently (WAL checkpoint)
+- Existing data on the target system can be backed up
+- `install_id` is preserved — installation identity remains the same
 
-## Anforderungen
+## Requirements
 
 - Python 3.8+
-- Hermes AI Agent installiert unter `~/.hermes/`
+- Hermes AI Agent installed at `~/.hermes/`
 
-## Lizenz
+## License
 
 MIT

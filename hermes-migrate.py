@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Hermes Migration Tool - Vollständige Migration von Hermes Agent auf einen neuen Server.
+Hermes Migration Tool - Full migration of Hermes Agent to a new server.
 
-Verwendung:
-  hermes-migrate backup          - Erstellt ein Migration-Archiv der aktuellen Hermes-Installation
-  hermes-migrate restore <file>  - Stellt Hermes aus einem Migration-Archiv wieder
-  hermes-migrate info            - Zeigt Informationen über die aktuelle Installation
-  hermes-migrate verify <file>   - Prüft ein Migration-Archiv auf Vollständigkeit
-  hermes-migrate list            - Zeigt alle zu migrierenden Komponenten
+Usage:
+  hermes-migrate backup          - Creates a migration archive of the current Hermes installation
+  hermes-migrate restore <file>  - Restores Hermes from a migration archive
+  hermes-migrate info            - Shows information about the current installation
+  hermes-migrate verify <file>   - Checks a migration archive for completeness
+  hermes-migrate list            - Shows all components to be migrated
 """
 
 import argparse
@@ -24,7 +24,7 @@ from pathlib import Path
 
 HERMES_HOME = Path.home() / ".hermes"
 
-# Dateien, die MISSMÜSSEN
+# Files that MUST be included
 CRITICAL_ITEMS = [
     "config.yaml",
     "config.yaml.bak*",
@@ -54,9 +54,9 @@ CRITICAL_ITEMS = [
     "models_dev_cache.etag",
 ]
 
-# Verzeichnisse, die MISSMÜSSEN (nutzdaten, keine Plattform-Binaries!)
-# tools/, platforms/, node/, bin/, hermes-agent/ werden NICHT mitgenommen –
-# sie werden auf dem Zielrechner automatisch neu installiert.
+# Directories that MUST be included (user data, not platform binaries!)
+# tools/, platforms/, node/, bin/, hermes-agent/ are NOT included –
+# they will be automatically reinstalled on the target machine.
 CRITICAL_DIRS = [
     "skills",
     "sessions",
@@ -83,14 +83,14 @@ CRITICAL_DIRS = [
     "serve_restart_pending",
 ]
 
-# Optionale Verzeichnisse
+            # Optional directories
 OPTIONAL_DIRS = [
     "backups",
     "logs",
     "verification_evidence.db",
 ]
 
-# Immer ignorierte Dateien
+# Files always ignored
 IGNORE_PATTERNS = [
     "*.lock",
     "*.pid",
@@ -115,7 +115,7 @@ ARCHIVE_PREFIX = "hermes-migration-"
 
 
 def fmt_size(nbytes):
-    """Schöne Größendarstellung."""
+    """Nice size representation."""
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if nbytes < 1024:
             return "{:.1f} {}".format(nbytes, unit)
@@ -154,7 +154,7 @@ def section(title):
 
 
 def print_progress(current, total, label=""):
-    """Fortschrittsbalken."""
+    """Progress bar."""
     if total > 0:
         pct = current / total * 100
         bar_len = 30
@@ -173,16 +173,16 @@ def print_progress(current, total, label=""):
 
 
 def collect_hermes_info():
-    """Sammelt Informationen über die aktuelle Hermes-Installation."""
+    """Collects information about the current Hermes installation."""
     info = {
         "hermes_home": str(HERMES_HOME),
         "timestamp": datetime.datetime.now().isoformat(),
     }
 
     if not HERMES_HOME.exists():
-        return {"error": str(HERMES_HOME) + " existiert nicht!"}
+        return {"error": str(HERMES_HOME) + " does not exist!"}
 
-    # Gesamtgröße
+    # Total size
     total_size = 0
     file_count = 0
     dir_count = 0
@@ -197,7 +197,7 @@ def collect_hermes_info():
     info["file_count"] = file_count
     info["dir_count"] = dir_count
 
-    # Kritische Dateien prüfen
+    # Check critical files
     critical_found = []
     critical_missing = []
     for item in CRITICAL_ITEMS:
@@ -219,7 +219,7 @@ def collect_hermes_info():
                     if f.is_file():
                         size += f.stat().st_size
                         count += 1
-                critical_found.append("{}/ ({} Dateien, {})".format(d, count, fmt_size(size)))
+                critical_found.append("{}/ ({} files, {})".format(d, count, fmt_size(size)))
             else:
                 critical_found.append("{} ({})".format(d, fmt_size(dir_path.stat().st_size)))
         else:
@@ -241,7 +241,7 @@ def collect_hermes_info():
 
     # State DB
     state_db = HERMES_HOME / "state.db"
-    info["state_db_size"] = fmt_size(state_db.stat().st_size) if state_db.exists() else "nicht vorhanden"
+    info["state_db_size"] = fmt_size(state_db.stat().st_size) if state_db.exists() else "not present"
 
     # Skills
     skills_dir = HERMES_HOME / "skills"
@@ -258,44 +258,44 @@ def collect_hermes_info():
 
 
 def cmd_info(args):
-    """Zeigt Informationen über die aktuelle Installation."""
+    """Shows information about the current installation."""
     info = collect_hermes_info()
 
-    section("Hermes Migration - Installationsinformationen")
+    section("Hermes Migration - Installation information")
 
     if "error" in info:
-        print("\n  {}" .format(red("Fehler: " + info["error"])))
+        print("\n  {}" .format(red("Error: " + info["error"])))
         return 1
 
     print("\n  Hermes Home:        {}" .format(cyan(info["hermes_home"])))
-    print("  Gesamtgröße:        {}" .format(cyan(info["total_size"])))
-    print("  Dateien:            {}" .format(info["file_count"]))
-    print("  Verzeichnisse:      {}" .format(info["dir_count"]))
+    print("  Total size:         {}" .format(cyan(info["total_size"])))
+    print("  Files:              {}" .format(info["file_count"]))
+    print("  Directories:        {}" .format(info["dir_count"]))
     print("  Install ID:         {}" .format(info.get("install_id", "N/A")))
 
-    print("\n  Konfiguration:")
+    print("\n  Configuration:")
     config_str = "yes" if info.get("config_exists") else "no"
     print("    config.yaml:      {} {}" .format(config_str, info.get("config_size", "N/A")))
     print("    state.db:         {}" .format(info.get("state_db_size", "N/A")))
-    print("    Skills:           {} Verzeichnisse" .format(info.get("skill_count", 0)))
-    print("    Trading aktiv:    {} {}" .format(
+    print("    Skills:           {} directories" .format(info.get("skill_count", 0)))
+    print("    Trading active:   {} {}" .format(
         "yes" if info.get("kraken_trading_active") else "no",
         info.get("kraken_pairs", [])
     ))
 
     missing = info.get("critical_missing", [])
     if missing:
-        print("\n  {}" .format(yellow("Warnung: Folgende kritische Dateien fehlen:")))
+        print("\n  {}" .format(yellow("Warning: The following critical files are missing:")))
         for m in missing:
             print("    - {}".format(m))
 
-    print("\n  {}" .format(dim('Verwenden Sie "backup" um eine Migration zu erstellen,')))
-    print("  {}" .format(dim('"restore" um eine Migration wiederherzustellen.')))
+    print("\n  {}" .format(dim('Use "backup" to create a migration,')))
+    print("  {}" .format(dim('"restore" to restore a migration.')))
     return 0
 
 
 def stop_hermes_gateway():
-    """Hermes Gateway stoppen für konsistente Backup-Daten."""
+    """Stop Hermes gateway for consistent backup data."""
     section("Hermes Gateway")
 
     gateway_pid = HERMES_HOME / "gateway.pid"
@@ -304,7 +304,7 @@ def stop_hermes_gateway():
             pid = int(gateway_pid.read_text().strip())
             print("\n  Gateway PID: {}".format(pid))
 
-            print("  Versuche Gateway graceful zu stoppen...")
+            print("  Attempting to gracefully stop gateway...")
             result = subprocess.run(
                 ["kill", "-TERM", str(pid)],
                 capture_output=True, text=True
@@ -315,23 +315,23 @@ def stop_hermes_gateway():
                 try:
                     os.kill(pid, 0)
                 except OSError:
-                    print("  {}" .format(green("Gateway gestoppt")))
+                    print("  {}" .format(green("Gateway stopped")))
                     return True
 
-            print("  Gateway reagierte nicht - forcieren...")
+            print("  Gateway did not respond - forcing...")
             subprocess.run(["kill", "-9", str(pid)], capture_output=True)
             time.sleep(1)
-            print("  {}" .format(green("Gateway forcirt gestoppt")))
+            print("  {}" .format(green("Gateway force stopped")))
             return True
         except (ValueError, FileNotFoundError) as e:
-            print("  {}" .format(yellow("Konnte Gateway nicht stoppen: " + str(e))))
+            print("  {}" .format(yellow("Could not stop gateway: " + str(e))))
     else:
-        print("  Kein Gateway-PID-File gefunden - nicht aktiv.")
+        print("  No gateway PID file found - not active.")
     return False
 
 
 def flush_sqlite_db(db_path):
-    """SQLite WAL-Dateien flushen für konsistente Daten."""
+    """Flush SQLite WAL files for consistent data."""
     if db_path.exists():
         try:
             conn = sqlite3.connect(str(db_path))
@@ -339,19 +339,19 @@ def flush_sqlite_db(db_path):
             conn.close()
             return True
         except Exception as e:
-            print("  {}" .format(yellow("SQLite Flush failed for {}: {}".format(db_path.name, e))))
+            print("  {}" .format(yellow("SQLite flush failed for {}: {}".format(db_path.name, e))))
     return False
 
 
 def cmd_backup(args):
-    """Erstellt ein Migration-Archiv."""
+    """Creates a migration archive."""
     section("Hermes Migration - Backup")
 
     if not HERMES_HOME.exists():
-        print("\n  {}" .format(red("Fehler: " + str(HERMES_HOME) + " existiert nicht!")))
+        print("\n  {}" .format(red("Error: " + str(HERMES_HOME) + " does not exist!")))
         return 1
 
-    # Ziel bestimmen
+    # Determine output
     output = args.output or None
     if not output:
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -363,26 +363,26 @@ def cmd_backup(args):
 
     output_path = Path(output)
     if output_path.exists():
-        print("\n  {}".format(yellow("Warnung: Datei existiert bereits:")))
-        response = input("  Überschreiben? [j/N]: ").strip().lower()
+        print("\n  {}".format(yellow("Warning: File already exists:")))
+        response = input("  Overwrite? [y/N]: ").strip().lower()
         if response not in ("j", "yes"):
-            print("  Abgebrochen.")
+            print("  Aborted.\n")
             return 0
 
-    # Gateway stoppen
-    print("\n  Status: Hermes Gateway wird gestoppt...")
+    # Stop Hermes gateway
+    print("\n  Status: Stopping Hermes gateway...")
     gateway_stopped = stop_hermes_gateway()
 
-    # SQLite flushen
-    print("\n  Status: SQLite-Datenbanken synchronisieren...")
+    # Flush SQLite
+    print("\n  Status: Synchronizing SQLite databases...")
     sqlite_files = ["state.db", "kanban.db", "projects.db", "shared-state.db"]
     for db in sqlite_files:
         db_path = HERMES_HOME / db
         if db_path.exists():
             flush_sqlite_db(db_path)
 
-    # Archiv erstellen
-    print("\n  Status: Erstelle Archiv: {}".format(output_path))
+    # Create archive
+    print("\n  Status: Creating archive: {}".format(output_path))
 
     start_time = time.time()
     total_items = len(CRITICAL_ITEMS) + len(CRITICAL_DIRS)
@@ -392,25 +392,25 @@ def cmd_backup(args):
 
     try:
         with tarfile.open(str(output_path), "w:gz", compresslevel=6) as tar:
-            # Kritische Dateien
+            # Critical files
             for item in CRITICAL_ITEMS:
                 for match in HERMES_HOME.glob(item):
                     if match.is_file():
                         arcname = match.name
                         tar.add(str(match), arcname=arcname)
                         current_item += 1
-                        print_progress(current_item, total_items, "Kritisch: " + arcname)
+                        print_progress(current_item, total_items, "Critical: " + arcname)
 
-            # Kritische Verzeichnisse
+            # Critical directories
             for d in CRITICAL_DIRS:
                 dir_path = HERMES_HOME / d
                 if dir_path.exists() and dir_path.is_dir():
                     tar.add(str(dir_path), arcname=d)
                     dir_files = sum(1 for _ in dir_path.rglob("*") if _.is_file())
                     current_item += 1
-                    print_progress(current_item, total_items, "{}/ ({} Dateien)".format(d, dir_files))
+                    print_progress(current_item, total_items, "{}/ ({} files)".format(d, dir_files))
 
-            # Optionale Verzeichnisse
+# Optional directories
             if args.include_optional:
                 for d in OPTIONAL_DIRS:
                     dir_path = HERMES_HOME / d
@@ -422,41 +422,41 @@ def cmd_backup(args):
         elapsed = time.time() - start_time
         archive_size = output_path.stat().st_size
 
-        section("Backup abgeschlossen")
+        section("Backup complete")
 
         if gateway_stopped:
-            print("\n  {}" .format(yellow("Gateway wurde für das Backup gestoppt!")))
-            print("  Starten Sie es nach der Migration mit:")
+            print("\n  {}" .format(yellow("Gateway was stopped for the backup!")))
+            print("  Start it after migration with:")
             print("    hermes gateway start")
 
-        print("\n  {}" .format(green("Backup erfolgreich erstellt!")))
-        print("\n  Datei:    {}" .format(cyan(str(output_path))))
-        print("  Größe:    {}" .format(cyan(fmt_size(archive_size))))
-        print("  Dauer:    {:.1f}s".format(elapsed))
+        print("\n  {}" .format(green("Backup created successfully!")))
+        print("\n  File:     {}" .format(cyan(str(output_path))))
+        print("  Size:     {}" .format(cyan(fmt_size(archive_size))))
+        print("  Duration: {:.1f}s".format(elapsed))
 
         if args.clipboard:
             try:
                 subprocess.run(["xclip", "-selection", "clipboard"],
                              input=str(output_path).encode(), check=True)
-                print("  {}" .format(green("Pfad in Zwischenablage kopiert!")))
+                print("  {}" .format(green("Path copied to clipboard!")))
             except (subprocess.CalledProcessError, FileNotFoundError):
                 try:
                     subprocess.run(["xsel", "--clipboard", "--input"],
                                  input=str(output_path).encode(), check=True)
-                    print("  {}" .format(green("Pfad in Zwischenablage kopiert!")))
+                    print("  {}" .format(green("Path copied to clipboard!")))
                 except Exception:
-                    print("\n  {}" .format(yellow("Kein Clipboard-Werkzeug gefunden.")))
-                    print("  Manuell kopieren: {}".format(output_path))
+                    print("\n  {}" .format(yellow("No clipboard tool found.")))
+                    print("  Copy manually: {}".format(output_path))
 
         return 0
 
     except Exception as e:
-        print("\n  {}" .format(red("Fehler beim Erstellen: " + str(e))))
+        print("\n  {}" .format(red("Error creating: " + str(e))))
         return 1
 
 
 def get_existing_trading_state(hermes_home):
-    """Prueft, ob auf dem Zielserver bereits Trading-State existiert."""
+    """Checks if trading state already exists on the target server."""
     state = {}
     for f in hermes_home.glob("kraken_*_state.json"):
         if f.name not in ("spawn-ledger.json",):
@@ -465,52 +465,52 @@ def get_existing_trading_state(hermes_home):
 
 
 def cmd_restore(args):
-    """Stellt Hermes aus einem Migration-Archiv wieder her."""
+    """Restores Hermes from a migration archive."""
     archive_path = Path(args.archive)
 
     section("Hermes Migration - Restore")
 
     if not archive_path.exists():
-        print("\n  {}" .format(red("Fehler: Archiv nicht gefunden: " + str(archive_path))))
+        print("\n  {}" .format(red("Error: Archive not found: " + str(archive_path))))
         return 1
 
-    print("\n  Archiv: {}" .format(cyan(str(archive_path))))
-    print("  Groesse: {}" .format(cyan(fmt_size(archive_path.stat().st_size))))
+    print("\n  Archive: {}" .format(cyan(str(archive_path))))
+    print("  Size: {}" .format(cyan(fmt_size(archive_path.stat().st_size))))
 
     if not HERMES_HOME.parent.exists():
-        print("\n  {}" .format(red("Fehler: Parent exists not: " + str(HERMES_HOME.parent))))
+        print("\n  {}" .format(red("Error: Parent does not exist: " + str(HERMES_HOME.parent))))
         return 1
 
-    # Vorhandene Daten prüfen
+    # Check existing data
     gateway_stopped = False
     if HERMES_HOME.exists():
         existing = get_existing_trading_state(HERMES_HOME)
         if existing:
-            print("\n  {}" .format(yellow("Vorhandene Trading-State-Dateien:")))
+            print("\n  {}" .format(yellow("Existing trading state files:")))
             for name, size in existing.items():
                 print("    - {} ({})" .format(name, fmt_size(size)))
             print()
-            response = input("  Vorhandene Daten BEWAHREN (m) oder ueberschreiben (j)? [m/j]: ").strip().lower()
-            preserve = response in ("m", "me", "preserve")
+            response = input("  Preserve existing data (p) or overwrite (y)? [p/y]: ").strip().lower()
+            preserve = response in ("p", "preserve")
         else:
-            response = input("  Vorhandene Daten ueberschreiben? [J/n]: ").strip().lower()
-            preserve = response not in ("n", "no", "nein")
+            response = input("  Overwrite existing data? [Y/n]: ").strip().lower()
+            preserve = response not in ("n", "no")
 
-        if not preserve and response not in ("j", "yes", "ja"):
-            print("  Abgebrochen.")
+        if not preserve and response not in ("y", "yes"):
+            print("  Aborted.\n")
             return 0
 
         gateway_stopped = stop_hermes_gateway()
     else:
-        print("\n  Erstelle Zielverzeichnis: {}".format(HERMES_HOME))
+        print("\n  Creating target directory: {}".format(HERMES_HOME))
         HERMES_HOME.mkdir(parents=True, exist_ok=True)
 
-    # Vor dem Restore: Sicherungsverzeichnis
+    # Pre-restore: backup directory
     backup_dir = None
     if preserve and HERMES_HOME.exists():
         backup_dir = HERMES_HOME / ".curator_backups" / "pre-migration-{}".format(
             datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        print("\n  Status: Sichere vorhandene Dateien...")
+        print("\n  Status: Backing up existing files...")
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         for item in CRITICAL_ITEMS:
@@ -527,8 +527,8 @@ def cmd_restore(args):
                 if not dest.exists():
                     shutil.copytree(str(dir_path), str(dest), dirs_exist_ok=True)
 
-    # Archiv entpacken
-    print("\n  Status: Entpacke Archiv...")
+    # Extract archive
+    print("\n  Status: Extracting archive...")
     start_time = time.time()
 
     try:
@@ -542,56 +542,56 @@ def cmd_restore(args):
 
         elapsed = time.time() - start_time
 
-        # Berechtigungen
-        print("\n  Status: Setze Berechtigungen...")
+        # Set permissions
+        print("\n  Status: Setting permissions...")
         for item in HERMES_HOME.iterdir():
             if item.is_dir():
                 os.chmod(str(item), 0o700)
             else:
                 os.chmod(str(item), 0o600)
 
-        section("Restore abgeschlossen")
+        section("Restore complete")
 
         install_id_file = HERMES_HOME / "install_id"
         if install_id_file.exists():
             new_id = install_id_file.read_text().strip()
             print("\n  Install ID: {}" .format(cyan(new_id)))
-            print("  Identitaet der Installation wurde beibehalten.")
+            print("  Installation identity has been preserved.")
 
         if backup_dir:
-            print("\n  {}" .format(green("Vorhandene Dateien gesichert in:")))
+            print("\n  {}" .format(green("Existing files backed up to:")))
             print("    {}".format(backup_dir))
 
         if gateway_stopped:
-            print("\n  {}" .format(yellow("Gateway wurde vor dem Restore gestoppt!")))
-            print("  Starten Sie es mit: hermes gateway start")
+            print("\n  {}" .format(yellow("Gateway was stopped before restore!")))
+            print("  Start it with: hermes gateway start")
 
-        print("\n  {}" .format(green("Restore erfolgreich abgeschlossen!")))
-        print("  Dauer: {:.1f}s".format(elapsed))
-        print("\n  Naechste Schritte:")
-        print("    1. Starten Sie Hermes: {}".format(cyan("hermes gateway start")))
-        print("    2. Konfiguration pruefen: {}".format(cyan("hermes doctor")))
-        print("    3. Trading-Grids testen")
+        print("\n  {}" .format(green("Restore completed successfully!")))
+        print("  Duration: {:.1f}s".format(elapsed))
+        print("\n  Next steps:")
+        print("    1. Start Hermes: {}".format(cyan("hermes gateway start")))
+        print("    2. Check configuration: {}".format(cyan("hermes doctor")))
+        print("    3. Test trading grids")
 
         return 0
 
     except Exception as e:
-        print("\n  {}" .format(red("Fehler beim Restore: " + str(e))))
+        print("\n  {}" .format(red("Error during restore: " + str(e))))
         return 1
 
 
 def cmd_verify(args):
-    """Prueft ein Migration-Archiv auf Vollstaendigkeit."""
+    """Checks a migration archive for completeness."""
     archive_path = Path(args.archive)
 
-    section("Hermes Migration - Archiv pruefen")
+    section("Hermes Migration - Verify archive")
 
     if not archive_path.exists():
-        print("\n  {}" .format(red("Fehler: Archiv nicht gefunden: " + str(archive_path))))
+        print("\n  {}" .format(red("Error: Archive not found: " + str(archive_path))))
         return 1
 
-    print("\n  Archiv: {}" .format(cyan(str(archive_path))))
-    print("  Groesse: {}" .format(cyan(fmt_size(archive_path.stat().st_size))))
+    print("\n  Archive: {}" .format(cyan(str(archive_path))))
+    print("  Size: {}" .format(cyan(fmt_size(archive_path.stat().st_size))))
 
     try:
         with tarfile.open(str(archive_path), "r:gz") as tar:
@@ -607,7 +607,7 @@ def cmd_verify(args):
 
             total_size = sum(m.size for m in tar.getmembers())
 
-        section("Ergebnis")
+        section("Result")
 
         critical_ok = []
         critical_missing = []
@@ -628,46 +628,46 @@ def cmd_verify(args):
 
         all_ok = not critical_missing and not dirs_missing
 
-        print("\n  Kritische Dateien:  {} {} gefunden, {} fehlen" .format(
-            green("OK") if not critical_missing else yellow("FEHLER"),
+        print("\n  Critical files:       {} {} found, {} missing" .format(
+            green("OK") if not critical_missing else yellow("ERROR"),
             len(critical_ok), len(critical_missing)))
-        print("  Kritische Verzeichnisse: {} {} gefunden, {} fehlen" .format(
-            green("OK") if not dirs_missing else yellow("FEHLER"),
+        print("  Critical directories: {} {} found, {} missing" .format(
+            green("OK") if not dirs_missing else yellow("ERROR"),
             len(dirs_ok), len(dirs_missing)))
-        print("  Dateien im Archiv:  {}" .format(len(archived_files)))
-        print("  Gesamtgroesse:      {}" .format(fmt_size(total_size)))
+        print("  Files in archive:     {}" .format(len(archived_files)))
+        print("  Total size:           {}" .format(fmt_size(total_size)))
 
         if critical_missing:
-            print("\n  {}" .format(yellow("Fehlende kritische Dateien:")))
+            print("\n  {}" .format(yellow("Missing critical files:")))
             for m in critical_missing:
                 print("    - {}".format(m))
 
         if dirs_missing:
-            print("\n  {}" .format(yellow("Fehlende kritische Verzeichnisse:")))
+            print("\n  {}" .format(yellow("Missing critical directories:")))
             for m in dirs_missing:
                 print("    - {}/".format(m))
 
         if all_ok:
-            print("\n  {}" .format(green("Archiv ist vollstaendig und einsatzbereit!")))
+            print("\n  {}" .format(green("Archive is complete and ready to use!")))
         else:
-            print("\n  {}" .format(yellow("Archiv ist unvollstaendig.")))
+            print("\n  {}" .format(yellow("Archive is incomplete.")))
 
         return 0 if all_ok else 1
 
     except Exception as e:
-        print("\n  {}" .format(red("Fehler beim Pruefen: " + str(e))))
+        print("\n  {}" .format(red("Error checking: " + str(e))))
         return 1
 
 
 def cmd_list_components(args):
-    """Listet alle zu migrierenden Komponenten auf."""
-    section("Hermes Migration - Zu migrierende Komponenten")
+    """Lists all components to be migrated."""
+    section("Hermes Migration - Components to migrate")
 
     if not HERMES_HOME.exists():
-        print("\n  {}" .format(red("Fehler: " + str(HERMES_HOME) + " existiert nicht!")))
+        print("\n  {}" .format(red("Error: " + str(HERMES_HOME) + " does not exist!")))
         return 1
 
-    print("\n  {}" .format(bold("Kritische Dateien (MUESSEN migriert werden):")))
+    print("\n  {}" .format(bold("Critical files (MUST be migrated):")))
     for item in CRITICAL_ITEMS:
         matches = list(HERMES_HOME.glob(item))
         if matches:
@@ -677,32 +677,32 @@ def cmd_list_components(args):
                     sizes.append(fmt_size(m.stat().st_size))
             print("    {} {} ({})" .format(green("OK"), item, ", ".join(sizes)))
         else:
-            print("    {} {} (nicht vorhanden)" .format(yellow("NEIN"), item))
+            print("    {} {} (not present)" .format(yellow("NO"), item))
 
-    print("\n  {}" .format(bold("Kritische Verzeichnisse (MUESSEN migriert werden):")))
+    print("\n  {}" .format(bold("Critical directories (MUST be migrated):")))
     for d in CRITICAL_DIRS:
         dir_path = HERMES_HOME / d
         if dir_path.exists() and dir_path.is_dir():
             size = sum(f.stat().st_size for f in dir_path.rglob("*") if f.is_file())
             count = sum(1 for _ in dir_path.rglob("*") if _.is_file())
-            print("    {} {}/ ({} Dateien, {})" .format(green("OK"), d, count, fmt_size(size)))
+            print("    {} {}/ ({} files, {})" .format(green("OK"), d, count, fmt_size(size)))
         elif dir_path.exists():
             print("    {} {} ({})" .format(green("OK"), d, fmt_size(dir_path.stat().st_size)))
         else:
-            print("    {} {}/ (nicht vorhanden)" .format(yellow("NEIN"), d))
+            print("    {} {}/ (not present)" .format(yellow("NO"), d))
 
-    print("\n  {}" .format(bold("Optionale Verzeichnisse (KOENNEN migriert werden):")))
+    print("\n  {}" .format(bold("Optional directories (CAN be migrated):")))
     for d in OPTIONAL_DIRS:
         dir_path = HERMES_HOME / d
         if dir_path.exists() and dir_path.is_dir():
             size = sum(f.stat().st_size for f in dir_path.rglob("*") if f.is_file())
             count = sum(1 for _ in dir_path.rglob("*") if _.is_file())
-            print("    {} {}/ ({} Dateien, {})" .format(yellow("OPTIONAL"), d, count, fmt_size(size)))
+            print("    {} {}/ ({} files, {})" .format(yellow("OPTIONAL"), d, count, fmt_size(size)))
         else:
-            print("    {} {}/ (nicht vorhanden)" .format(yellow("NEIN"), d))
+            print("    {} {}/ (not present)" .format(yellow("NO"), d))
 
-    print("\n  {}" .format(dim("Hinweis: Lock-, PID-Dateien und Logs werden automatisch ausgeschlossen.")))
-    print("  {}" .format(dim("Cache-Verzeichnisse werden nicht mit migriert.")))
+    print("\n  {}" .format(dim("Note: Lock files, PID files, and logs are automatically excluded.")))
+    print("  {}" .format(dim("Cache directories are not migrated.")))
 
     return 0
 
@@ -710,8 +710,8 @@ def cmd_list_components(args):
 def main():
     parser = argparse.ArgumentParser(
         prog="hermes-migrate",
-        description="Hermes Agent Migration Tool - Vollstaendige Migration auf einen neuen Server",
-        epilog="Beispiel:\n"
+        description="Hermes Agent Migration Tool - Full migration to a new server",
+        epilog="Example:\n"
                "  hermes-migrate backup\n"
                "  hermes-migrate backup -o /tmp/hermes.tar.gz\n"
                "  hermes-migrate restore hermes-migration-*.tar.gz\n"
@@ -721,29 +721,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Verfuegbarer Befehl")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # backup
-    backup_parser = subparsers.add_parser("backup", help="Migration-Archiv erstellen")
-    backup_parser.add_argument("-o", "--output", help="Ausgabepfad (default: hermes-migration-<timestamp>.tar.gz)")
+    backup_parser = subparsers.add_parser("backup", help="Create migration archive")
+    backup_parser.add_argument("-o", "--output", help="Output path (default: hermes-migration-<timestamp>.tar.gz)")
     backup_parser.add_argument("--include-optional", action="store_true",
-                              help="Optionale Daten einbezuehen (backups, logs)")
+                               help="Include optional data (backups, logs)")
     backup_parser.add_argument("--clipboard", action="store_true",
-                              help="Pfad nach dem Backup in die Zwischenablage kopieren")
+                               help="Copy path to clipboard after backup")
 
     # restore
-    restore_parser = subparsers.add_parser("restore", help="Migration-Archiv wiederherstellen")
-    restore_parser.add_argument("archive", help="Pfad zum Migration-Archiv")
+    restore_parser = subparsers.add_parser("restore", help="Restore migration archive")
+    restore_parser.add_argument("archive", help="Path to migration archive")
 
     # verify
-    verify_parser = subparsers.add_parser("verify", help="Migration-Archiv pruefen")
-    verify_parser.add_argument("archive", help="Pfad zum Migration-Archiv")
+    verify_parser = subparsers.add_parser("verify", help="Check migration archive")
+    verify_parser.add_argument("archive", help="Path to migration archive")
 
     # info
-    subparsers.add_parser("info", help="Installationsinformationen anzeigen")
+    subparsers.add_parser("info", help="Show installation information")
 
     # list
-    subparsers.add_parser("list", help="Zu migrierende Komponenten auflisten")
+    subparsers.add_parser("list", help="List components to be migrated")
 
     args = parser.parse_args()
 
